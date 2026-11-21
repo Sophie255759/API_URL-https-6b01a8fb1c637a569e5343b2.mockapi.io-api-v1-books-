@@ -1,86 +1,85 @@
+"""Exercise the Bookstore MockAPI books resource."""
+
+import json
+import sys
+
 import requests
 
 API_URL = "https://6b01a8fb1c637a569e5343b2.mockapi.io/api/v1/books"
 TIMEOUT = 10
+UPDATE_BOOK_ID = "2"
+DELETE_BOOK_ID = "3"
+
 
 def get_books():
-    """GET all books."""
-    try:
-        response = requests.get(API_URL, timeout=TIMEOUT)
-        response.raise_for_status()
-        books = response.json()
-        print("GET all books")
-        print(books)
-        print("Status code:", response.status_code)
-        return books
-    except requests.exceptions.RequestException as err:
-        print("GET error:", err)
-        return None
+    """Return all books in the inventory."""
+    response = requests.get(API_URL, timeout=TIMEOUT)
+    response.raise_for_status()
+    return response.json()
+
 
 def add_book(book):
-    """POST a new book."""
-    try:
-        response = requests.post(API_URL, json=book, timeout=TIMEOUT)
-        response.raise_for_status()
-        created_book = response.json()
-        print("POST new book")
-        print(created_book)
-        print("Status code:", response.status_code)
-        return created_book
-    except requests.exceptions.RequestException as err:
-        print("POST error:", err)
-        return None
+    """Create a book and return the created record."""
+    response = requests.post(API_URL, json=book, timeout=TIMEOUT)
+    response.raise_for_status()
+    return response.json()
+
 
 def update_book(book_id, book):
-    """PUT: replace an existing book entirely."""
-    try:
-        response = requests.put(
-            f"{API_URL}/{book_id}", json=book, timeout=TIMEOUT
-        )
-        response.raise_for_status()
-        updated_book = response.json()
-        print(f"PUT book {book_id}")
-        print(updated_book)
-        print("Status code:", response.status_code)
-        return updated_book
-    except requests.exceptions.RequestException as err:
-        print("PUT error:", err)
-        return None
+    """Replace a book and return the updated record."""
+    response = requests.put(
+        f"{API_URL}/{book_id}", json=book, timeout=TIMEOUT
+    )
+    response.raise_for_status()
+    return response.json()
+
 
 def delete_book(book_id):
-    """DELETE a book, then GET it to confirm it is gone."""
-    try:
-        response = requests.delete(f"{API_URL}/{book_id}", timeout=TIMEOUT)
-        response.raise_for_status()
-        print(f"DELETE book {book_id}")
-        print("Status code:", response.status_code)
-    except requests.exceptions.RequestException as err:
-        print("DELETE error:", err)
-        return
+    """Delete a book and return whether a follow-up GET confirms removal."""
+    response = requests.delete(f"{API_URL}/{book_id}", timeout=TIMEOUT)
+    response.raise_for_status()
 
+    verification = requests.get(f"{API_URL}/{book_id}", timeout=TIMEOUT)
+    if verification.status_code == 404:
+        return True
+    verification.raise_for_status()
+    return False
+
+
+def main():
+    """Run the GET, POST, PUT, DELETE, and deletion-verification exercise."""
     try:
-        check = requests.get(f"{API_URL}/{book_id}", timeout=TIMEOUT)
-        if check.status_code == 404:
-            print(f"Confirmed: book {book_id} no longer exists.")
+        print("GET all books:")
+        print(json.dumps(get_books(), indent=2))
+
+        print("\nPOST a sixth book:")
+        created = add_book({
+            "title": "Deep Work",
+            "author": "Cal Newport",
+            "rating": "8",
+        })
+        print(json.dumps(created, indent=2))
+
+        print(f"\nPUT book {UPDATE_BOOK_ID}:")
+        updated = update_book(UPDATE_BOOK_ID, {
+            "title": "The Psychology of Money",
+            "author": "Morgan Housel",
+            "rating": "9",
+        })
+        print(json.dumps(updated, indent=2))
+
+        print(f"\nDELETE book {DELETE_BOOK_ID}:")
+        if delete_book(DELETE_BOOK_ID):
+            print(f"GET verification: book {DELETE_BOOK_ID} returned 404.")
         else:
-            check.raise_for_status()
-            print("Unexpected: book still exists!", check.json())
-    except requests.exceptions.RequestException as err:
-        print("Verification error:", err)
+            print(f"GET verification failed: book {DELETE_BOOK_ID} still exists.")
+            return 1
+    except requests.exceptions.RequestException as error:
+        print(f"Bookstore API request failed: {error}", file=sys.stderr)
+        return 1
+
+    return 0
+
 
 if __name__ == "__main__":
-    get_books()
-
-    add_book({
-        "title": "Deep Work",
-        "author": "Cal Newport",
-        "rating": 8,
-    })
-
-    update_book(2, {
-        "title": "The Psychology of Money",
-        "author": "Morgan Housel",
-        "rating": 9,
-    })
-
-    delete_book(3)
+    raise SystemExit(main())
